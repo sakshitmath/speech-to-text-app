@@ -33,3 +33,5 @@ build/
 .vscode/
 application.properties
 *.env
+# Secret files - never push these
+application.properties
