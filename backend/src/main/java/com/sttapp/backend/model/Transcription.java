@@ -35,6 +35,11 @@ public class Transcription {
 
     @Column
     private String language;
+    @Column(columnDefinition = "TEXT")
+    private String summary;
+
+    @Column(name = "word_count")
+    private Integer wordCount;
 
     @Column(name = "duration_seconds")
     private Double durationSeconds;

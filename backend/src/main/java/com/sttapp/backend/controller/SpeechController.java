@@ -22,11 +22,12 @@ public class SpeechController {
     @PostMapping("/transcribe")
     public ResponseEntity<TranscriptionResponse> transcribe(
             @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "language", defaultValue = "auto") String language,
             @AuthenticationPrincipal UserDetails userDetails)
             throws IOException, InterruptedException {
 
         TranscriptionResponse response = speechService.transcribeAudio(
-                file, userDetails.getUsername());
+                file, userDetails.getUsername(), language);
         return ResponseEntity.ok(response);
     }
 

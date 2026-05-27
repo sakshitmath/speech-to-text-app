@@ -18,14 +18,27 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+// Auto logout only on auth endpoints 401/403
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.clear()
+      window.location.href = '/login'
+    }
+    return Promise.reject(error)
+  }
+)
+
 // Auth APIs
 export const registerUser = (data) => api.post('/auth/register', data)
 export const loginUser = (data) => api.post('/auth/login', data)
 
 // Speech APIs
-export const transcribeAudio = (formData) => api.post('/speech/transcribe', formData, {
-  headers: { 'Content-Type': 'multipart/form-data' }
-})
+export const transcribeAudio = (formData, language = 'auto') => 
+  api.post(`/speech/transcribe?language=${language}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
 export const getHistory = () => api.get('/speech/history')
 export const getTranscriptionById = (id) => api.get(`/speech/${id}`)
 

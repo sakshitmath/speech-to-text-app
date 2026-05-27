@@ -55,13 +55,24 @@ public class SpeechService {
         return jsonNode.get("upload_url").asText();
     }
 
-    private String submitTranscription(String audioUrl)
+    private String submitTranscription(String audioUrl, String language)
             throws IOException, InterruptedException {
 
-        String requestBody = "{"
-                + "\"audio_url\": \"" + audioUrl + "\","
-                + "\"speech_models\": [\"universal-2\"]"
-                + "}";
+        StringBuilder requestBody = new StringBuilder();
+        requestBody.append("{");
+        requestBody.append("\"audio_url\": \"").append(audioUrl).append("\"");
+        requestBody.append(", \"speech_models\": [\"universal-2\"]");
+        requestBody.append(", \"summarization\": true");
+        requestBody.append(", \"summary_model\": \"informative\"");
+        requestBody.append(", \"summary_type\": \"bullets\"");
+
+        // Only set language if user explicitly chose one (not auto)
+        if (language != null && !language.equals("auto")) {
+            requestBody.append(", \"language_code\": \"").append(language).append("\"");
+        }
+        // If auto — AssemblyAI detects language automatically
+
+        requestBody.append("}");
 
         System.out.println("SUBMIT BODY: " + requestBody);
 
@@ -69,14 +80,14 @@ public class SpeechService {
                 .uri(URI.create("https://api.assemblyai.com/v2/transcript"))
                 .header("authorization", apiKey)
                 .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
                 .build();
 
         HttpResponse<String> response = httpClient.send(request,
                 HttpResponse.BodyHandlers.ofString());
 
         System.out.println("SUBMIT STATUS: " + response.statusCode());
-        System.out.println("SUBMIT BODY: " + response.body());
+        System.out.println("SUBMIT RESPONSE: " + response.body());
 
         JsonNode jsonNode = objectMapper.readTree(response.body());
         if (jsonNode.get("id") == null) {
@@ -85,7 +96,7 @@ public class SpeechService {
         return jsonNode.get("id").asText();
     }
 
-    private String pollForResult(String transcriptId)
+    private String[] pollForResult(String transcriptId)
             throws IOException, InterruptedException {
         while (true) {
             HttpRequest request = HttpRequest.newBuilder()
@@ -103,7 +114,19 @@ public class SpeechService {
             System.out.println("POLL STATUS: " + status);
 
             if (status.equals("completed")) {
-                return jsonNode.get("text").asText();
+                String transcript = jsonNode.get("text").asText();
+                // Get summary if available
+                String summary = "";
+                if (jsonNode.has("summary") && !jsonNode.get("summary").isNull()) {
+                    summary = jsonNode.get("summary").asText();
+                }
+                // Get detected language
+                String detectedLanguage = "en";
+                if (jsonNode.has("language_code") &&
+                        !jsonNode.get("language_code").isNull()) {
+                    detectedLanguage = jsonNode.get("language_code").asText();
+                }
+                return new String[]{transcript, summary, detectedLanguage};
             } else if (status.equals("error")) {
                 throw new RuntimeException("Transcription error: "
                         + jsonNode.get("error").asText());
@@ -113,7 +136,7 @@ public class SpeechService {
     }
 
     public TranscriptionResponse transcribeAudio(
-            MultipartFile file, String userEmail)
+            MultipartFile file, String userEmail, String language)
             throws IOException, InterruptedException {
 
         User user = userRepository.findByEmail(userEmail)
@@ -121,16 +144,26 @@ public class SpeechService {
                         new UsernameNotFoundException("User not found"));
 
         String uploadUrl = uploadAudioToAssemblyAI(file.getBytes());
-        String transcriptId = submitTranscription(uploadUrl);
-        String transcriptText = pollForResult(transcriptId);
+        String transcriptId = submitTranscription(uploadUrl, language);
+        String[] results = pollForResult(transcriptId);
+
+        String transcriptText = results[0];
+        String summary = results[1];
+        String detectedLanguage = results[2];
+
+        // Calculate word count
+        int wordCount = transcriptText.trim().isEmpty() ? 0 :
+                transcriptText.trim().split("\\s+").length;
 
         Transcription transcription = new Transcription();
         transcription.setUser(user);
         transcription.setAudioFilename(file.getOriginalFilename());
         transcription.setAudioUrl(uploadUrl);
         transcription.setTranscript(transcriptText);
+        transcription.setSummary(summary);
         transcription.setStatus("completed");
-        transcription.setLanguage("en");
+        transcription.setLanguage(detectedLanguage);
+        transcription.setWordCount(wordCount);
 
         Transcription saved = transcriptionRepository.save(transcription);
         return mapToResponse(saved);
@@ -163,8 +196,10 @@ public class SpeechService {
         response.setId(t.getId());
         response.setAudioFilename(t.getAudioFilename());
         response.setTranscript(t.getTranscript());
+        response.setSummary(t.getSummary());
         response.setStatus(t.getStatus());
         response.setLanguage(t.getLanguage());
+        response.setWordCount(t.getWordCount());
         response.setDurationSeconds(t.getDurationSeconds());
         response.setCreatedAt(t.getCreatedAt());
         return response;

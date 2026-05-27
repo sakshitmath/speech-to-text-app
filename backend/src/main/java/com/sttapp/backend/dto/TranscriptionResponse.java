@@ -12,8 +12,10 @@ public class TranscriptionResponse {
     private Long id;
     private String audioFilename;
     private String transcript;
+    private String summary;
     private String status;
     private String language;
+    private Integer wordCount;
     private Double durationSeconds;
     private LocalDateTime createdAt;
 }
