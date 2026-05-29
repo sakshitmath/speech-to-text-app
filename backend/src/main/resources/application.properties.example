@@ -1,6 +1,6 @@
 # Application
 spring.application.name=speech-to-text-backend
-server.port=8081
+server.port=${PORT:8081}
 
 # Database
 spring.datasource.url=jdbc:postgresql://localhost:5432/sttdb
