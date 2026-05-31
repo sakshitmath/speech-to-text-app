@@ -75,14 +75,14 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of(
-                "http://localhost:3000",
                 "http://localhost:5173",
-                "https://speech-to-text-app-production-fad4.up.railway.app",
-                "https://speech-to-text-olvfobdov-sakshitmaths-projects.vercel.app"
+                "https://speech-to-text-olvfobdov-sakshitmaths-projects.vercel.app",
+                "https://speech-to-text-app-orcin.vercel.app"  // also add the other Vercel URL
         ));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowCredentials(true);
+        configuration.setExposedHeaders(List.of("Authorization"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
